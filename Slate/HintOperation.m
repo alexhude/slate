@@ -93,6 +93,7 @@ static const UInt32 ESC_HINT_ID = 10001;
 - (void)createHintWindowFor:(AXUIElementRef)windowRef inApp:(AXUIElementRef)appRef screenWrapper:(ScreenWrapper *)sw {
   SlateLogger(@"    attempting to hint");
   NSString *hintCode = [self currentHintCode];
+  NSString *hintTitle = [AccessibilityWrapper getTitle:windowRef];
   if (hintCode == nil) {
     SlateLogger(@"    HINTCODE NIL!");
     return;
@@ -163,9 +164,21 @@ static const UInt32 ESC_HINT_ID = 10001;
     [frames addObject:[NSValue valueWithRect:frame]];
   }
 
+  CGRect realFrame = frame;
+	
   if ([hints objectForKey:currentHintNumber] == nil) {
+    if ([[SlateConfig getInstance] getBoolConfig:WINDOW_HINTS_TITLE_SHOW])
+	{
+		NSSize realSize = [self getTitleSize:hintTitle];
+
+		if (realSize.width > frame.size.width)
+			realFrame = CGRectInset(frame, (-(realSize.width - frame.size.width)/2)-3, 0);
+		else
+			realFrame = frame;
+		realFrame.size.height += (realSize.height + 2);
+	}
     SlateLogger(@"        New Window!");
-    NSWindow *window = [[HintWindow alloc] initWithContentRect:frame
+    NSWindow *window = [[HintWindow alloc] initWithContentRect:realFrame
                                                      styleMask:NSBorderlessWindowMask
                                                        backing:NSBackingStoreBuffered
                                                          defer:NO
@@ -175,17 +188,32 @@ static const UInt32 ESC_HINT_ID = 10001;
     [window setBackgroundColor:[NSColor colorWithDeviceRed:0.0 green:0.0 blue:0.0 alpha:0.0]];
     [window makeKeyAndOrderFront:NSApp];
     [window setLevel:(NSScreenSaverWindowLevel - 1)];
-    HintView *label = [[HintView alloc] initWithFrame:frame];
-    [label setText:hintCode];
+    HintView *label = [[HintView alloc] initWithFrame:realFrame];
+	[label setTitle:hintTitle];
+	[label setText:hintCode];
+    [label setHintSize:NSMakeSize(whWidth, whHeight)];
     [label setIconFromAppRef:appRef];
     [window setContentView:label];
     NSWindowController *wc = [[NSWindowController alloc] initWithWindow:window];
     [hints setObject:wc forKey:currentHintNumber];
   } else {
+    if ([[SlateConfig getInstance] getBoolConfig:WINDOW_HINTS_TITLE_SHOW])
+	{
+		NSSize realSize = [self getTitleSize:hintTitle];
+
+		frame = NSMakeRect(frame.origin.x+screen.frame.origin.x, frame.origin.y+screen.frame.origin.y, frame.size.width, frame.size.height);
+		if (realSize.width > frame.size.width)
+			realFrame = CGRectInset(frame, (-(realSize.width - frame.size.width)/2)-3, 0);
+		else
+			realFrame = frame;
+		realFrame.size.height += (realSize.height + 2);
+	}
     SlateLogger(@"        Existing Window!");
     NSWindowController *wc = [hints objectForKey:currentHintNumber];
-    [[wc window] setFrame:NSMakeRect(frame.origin.x+screen.frame.origin.x, frame.origin.y+screen.frame.origin.y, frame.size.width, frame.size.height) display:NO];
+    [[wc window] setFrame:realFrame display:NO];
     HintView *label = (HintView*)[[wc window] contentView];
+    [label setTitle:hintTitle];
+    [label setHintSize:NSMakeSize(whWidth, whHeight)];
     [label setIconFromAppRef:appRef];
     [wc showWindow:[wc window]];
   }
@@ -215,6 +243,14 @@ static const UInt32 ESC_HINT_ID = 10001;
     }
   }
   return false;
+}
+
+- (NSSize)getTitleSize:(NSString*)hintTitle
+{
+	NSFont* hintFont = [NSFont fontWithName:[[SlateConfig getInstance] getConfig:WINDOW_HINTS_TITLE_FONT_NAME]
+									   size:[[SlateConfig getInstance] getFloatConfig:WINDOW_HINTS_TITLE_FONT_SIZE]];
+	
+	return [hintTitle sizeWithAttributes:[NSDictionary dictionaryWithObjectsAndKeys:hintFont, NSFontAttributeName, nil]];
 }
 
 CFComparisonResult leftToRightWindows(const void *val1, const void *val2, void *context) {

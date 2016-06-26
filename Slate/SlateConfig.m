@@ -28,7 +28,6 @@
 #import "StringTokenizer.h"
 #import "Snapshot.h"
 #import "SnapshotList.h"
-#import "JSONKit.h"
 #import "SlateLogger.h"
 #import "NSFileManager+ApplicationSupport.h"
 #import "NSString+Indicies.h"
@@ -396,7 +395,11 @@ static SlateConfig *_instance = nil;
   NSString *fileString = [NSString stringWithContentsOfURL:[SlateConfig snapshotsFile] encoding:NSUTF8StringEncoding error:nil];
   if (fileString == nil || [fileString isEqualToString:EMPTY])
     return YES;
-  id iShouldBeADictionary = [fileString objectFromJSONString];
+  NSData *objectData = [fileString dataUsingEncoding:NSUTF8StringEncoding];
+  NSError *jsonError;
+  id iShouldBeADictionary = [NSJSONSerialization JSONObjectWithData:objectData
+															  options:NSJSONReadingMutableContainers
+																error:&jsonError];
   if (![iShouldBeADictionary isKindOfClass:[NSDictionary class]]) return NO;
   NSDictionary *snapshotsDict = iShouldBeADictionary;
   [self snapshotsFromDictionary:snapshotsDict];
@@ -492,7 +495,8 @@ static SlateConfig *_instance = nil;
   NSDictionary *snapshotDict = [self snapshotsToDictionary];
 
   // Get NSData from NSDictionary
-  NSData *jsonData = [snapshotDict JSONData];
+  NSError* error;
+ NSData* jsonData = [NSJSONSerialization dataWithJSONObject:snapshotDict options:NSJSONWritingPrettyPrinted error:&error];
 
   // Save NSData to file
   [jsonData writeToURL:[SlateConfig snapshotsFile] atomically:YES];
@@ -549,8 +553,15 @@ static SlateConfig *_instance = nil;
   [configDefaults setObject:FOCUS_CHECK_WIDTH_MAX_DEFAULT forKey:FOCUS_CHECK_WIDTH_MAX];
   [configDefaults setObject:FOCUS_PREFER_SAME_APP_DEFAULT forKey:FOCUS_PREFER_SAME_APP];
   [configDefaults setObject:ORDER_SCREENS_LEFT_TO_RIGHT_DEFAULT forKey:ORDER_SCREENS_LEFT_TO_RIGHT];
+  [configDefaults setObject:WINDOW_HINTS_TITLE_SHOW_DEFAULT forKey:WINDOW_HINTS_TITLE_SHOW];
+  [configDefaults setObject:WINDOW_HINTS_TITLE_FONT_NAME_DEFAULT forKey:WINDOW_HINTS_TITLE_FONT_NAME];
+  [configDefaults setObject:WINDOW_HINTS_TITLE_FONT_SIZE_DEFAULT forKey:WINDOW_HINTS_TITLE_FONT_SIZE];
+  [configDefaults setObject:WINDOW_HINTS_TITLE_FONT_COLOR_DEFAULT forKey:WINDOW_HINTS_TITLE_FONT_COLOR];
+  [configDefaults setObject:WINDOW_HINTS_TITLE_BACKGROUND_COLOR_DEFAULT forKey:WINDOW_HINTS_TITLE_BACKGROUND_COLOR];
   [configDefaults setObject:WINDOW_HINTS_BACKGROUND_COLOR_DEFAULT forKey:WINDOW_HINTS_BACKGROUND_COLOR];
   [configDefaults setObject:WINDOW_HINTS_FONT_COLOR_DEFAULT forKey:WINDOW_HINTS_FONT_COLOR];
+  [configDefaults setObject:WINDOW_HINTS_FONT_STROKE_SIZE_DEFAULT forKey:WINDOW_HINTS_FONT_STROKE_SIZE];
+  [configDefaults setObject:WINDOW_HINTS_FONT_STROKE_COLOR_DEFAULT forKey:WINDOW_HINTS_FONT_STROKE_COLOR];
   [configDefaults setObject:WINDOW_HINTS_FONT_NAME_DEFAULT forKey:WINDOW_HINTS_FONT_NAME];
   [configDefaults setObject:WINDOW_HINTS_FONT_SIZE_DEFAULT forKey:WINDOW_HINTS_FONT_SIZE];
   [configDefaults setObject:WINDOW_HINTS_HEIGHT_DEFAULT forKey:WINDOW_HINTS_HEIGHT];

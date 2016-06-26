@@ -132,6 +132,7 @@ static const UInt32 ESC_GRID_ID = 10002;
     [view addGridWithWidth:width height:height padding:[self padding]];
     [view setOp:self];
     [window setContentView:view];
+	[window makeFirstResponder:view];
     NSWindowController *wc = [[NSWindowController alloc] initWithWindow:window];
     [grids addObject:wc];
     if (screenId == currentScreenId) { toFocus = window; }

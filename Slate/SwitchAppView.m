@@ -29,7 +29,7 @@ static const float HIDDEN_ALPHA = 0.2;
 static const float SHOWN_ALPHA = 1.0;
 static const float STROKE_WIDTH = -5;
 
-@synthesize selected, hidden, quitting, forceQuitting, app, iconView, textField, quittingView;
+@synthesize selected, quitting, forceQuitting, app, iconView, textField, quittingView;
 
 static NSColor *switchFontColor = nil;
 static NSFont *switchFont = nil;
@@ -93,7 +93,6 @@ static float switchFontHeight = -1;
     iconView = [[NSImageView alloc] initWithFrame:NSMakeRect(iconPadding, iconPadding, iconSize, iconSize)];
   }
   NSImage *icon = [app icon];
-  [icon setScalesWhenResized:YES];
   [icon setSize:NSMakeSize(iconSize, iconSize)];
   [iconView setImage:icon];
   [iconView setAlphaValue:(hidden ? HIDDEN_ALPHA : SHOWN_ALPHA)];

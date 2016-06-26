@@ -28,13 +28,14 @@
 
 @implementation GridView
 
-@synthesize op, width, height, padding, cellWidth, cellHeight, previousActiveRect;
+@synthesize op, width, height, padding, cellWidth, cellHeight, previousActiveRect, keyboardMode, keyboardSelectionPoint, keyboardSelectionSize;
 
 - (id)initWithFrame:(NSRect)frame {
   self = [super initWithFrame:frame];
   if (self) {
     [self setGrid:[NSMutableArray array]];
     [self setWantsLayer:YES];
+	self.keyboardMode = false;
   }
   return self;
 }
@@ -150,6 +151,14 @@
   NSPoint initialMouseLoc = [self convertPoint:[theEvent locationInWindow] fromView:nil];
   NSRect activeRect;
 
+	if (keyboardMode)
+	{
+		keyboardMode = false;
+		keyboardSelectionPoint = NSMakePoint(-1, -1);
+		keyboardSelectionSize = NSMakeSize(0, 0);
+		[self activateCellsInRect:NSMakeRect(keyboardSelectionPoint.x, keyboardSelectionPoint.y, keyboardSelectionSize.width, keyboardSelectionSize.height)];
+	}
+	
   while (keepOn) {
     theEvent = [[self window] nextEventMatchingMask: NSLeftMouseUpMask |
                 NSLeftMouseDraggedMask];
@@ -164,10 +173,10 @@
       case NSLeftMouseUp:
         SlateLogger(@"Up - (%f,%f)", mouseLoc.x, mouseLoc.y);
         // activate shit
-        [[self op] activateLayoutWithOrigin:[[ExpressionPoint alloc] initWithX:[NSString stringWithFormat:@"screenOriginX+(screenSizeX*%f/%ld)", flippedRect.origin.x, [self width]]
-                                                                             y:[NSString stringWithFormat:@"screenOriginY+(screenSizeY*%f/%ld)", flippedRect.origin.y, [self height]]]
-                                       size:[[ExpressionPoint alloc] initWithX:[NSString stringWithFormat:@"screenSizeX*%f/%ld", flippedRect.size.width, [self width]]
-                                                                             y:[NSString stringWithFormat:@"screenSizeY*%f/%ld", flippedRect.size.height, [self height]]]
+		[[self op] activateLayoutWithOrigin:[[ExpressionPoint alloc] initWithX:[NSString stringWithFormat:@"screenOriginX+%d+(screenSizeX*%f/%ld)", (flippedRect.origin.x)? 1 : 0, flippedRect.origin.x,[self width]]
+																			 y:[NSString stringWithFormat:@"screenOriginY+%d+(screenSizeY*%f/%ld)", (flippedRect.origin.y)? 1 : 0, flippedRect.origin.y, [self height]]]
+                                       size:[[ExpressionPoint alloc] initWithX:[NSString stringWithFormat:@"(screenSizeX*%f/%ld)-1", flippedRect.size.width, [self width]]
+                                                                             y:[NSString stringWithFormat:@"(screenSizeY*%f/%ld)-1", flippedRect.size.height, [self height]]]
                                    screenId:[[[ScreenWrapper alloc] init] getScreenIdForPoint:[NSEvent mouseLocation]]];
         [[self op] performSelectorOnMainThread:@selector(killGrids) withObject:nil waitUntilDone:NO];
         keepOn = NO;
@@ -181,5 +190,156 @@
 
   return;
 }
+
+- (void)keyDown:(NSEvent *)theEvent
+{
+	NSRect newRect;
+	bool shift = [theEvent modifierFlags] & NSShiftKeyMask;
+	
+    if ([theEvent modifierFlags] & NSNumericPadKeyMask)
+	{ // arrow keys have this mask
+        NSString *theArrow = [theEvent charactersIgnoringModifiers];
+        unichar keyChar = 0;
+        if ( [theArrow length] == 0 )
+            return;            // reject dead keys
+        if ( [theArrow length] == 1 )
+		{
+            keyChar = [theArrow characterAtIndex:0];
+			if (keyboardMode)
+			{
+				if (shift)
+				{
+					NSSize oldSize = keyboardSelectionSize;
+					
+					if ( keyChar == NSRightArrowFunctionKey )
+						keyboardSelectionSize.width += 1;
+					else if ( keyChar == NSLeftArrowFunctionKey )
+						keyboardSelectionSize.width -= 1;
+					else if ( keyChar == NSUpArrowFunctionKey )
+						keyboardSelectionSize.height += 1;
+					else if ( keyChar == NSDownArrowFunctionKey )
+						keyboardSelectionSize.height -= 1;
+					
+					if (keyboardSelectionSize.width < 0 || keyboardSelectionSize.height < 0)
+					{
+						NSPoint newPoint = keyboardSelectionPoint;
+						NSSize newSize = keyboardSelectionSize;
+						
+						if (keyboardSelectionSize.width < 0)
+						{
+							newPoint.x += keyboardSelectionSize.width;
+							if (newPoint.x < 0)
+							{
+								keyboardSelectionSize.width = oldSize.width;
+								newPoint.x = keyboardSelectionPoint.x + keyboardSelectionSize.width;
+								newSize.width = keyboardSelectionSize.width;
+							}
+
+							newSize.width *= -1;
+						}
+						
+						if (keyboardSelectionSize.height < 0)
+						{
+							newPoint.y += keyboardSelectionSize.height;
+							if (newPoint.y < 0)
+							{
+								keyboardSelectionSize.height = oldSize.height;
+								newPoint.y = keyboardSelectionPoint.y + keyboardSelectionSize.height;
+								newSize.height = keyboardSelectionSize.height;
+							}
+							
+							newSize.height *= -1;
+						}
+
+						newRect = NSMakeRect(newPoint.x, newPoint.y, newSize.width, newSize.height);
+					}
+					else
+					{
+						if (keyboardSelectionPoint.x + keyboardSelectionSize.width == [self width])
+							keyboardSelectionSize.width -= 1;
+
+						if (keyboardSelectionPoint.y + keyboardSelectionSize.height == [self height])
+							keyboardSelectionSize.height -= 1;
+
+						newRect = NSMakeRect(keyboardSelectionPoint.x, keyboardSelectionPoint.y, keyboardSelectionSize.width, keyboardSelectionSize.height);
+					}
+				}
+				else
+				{
+					if (! NSEqualSizes(keyboardSelectionSize, NSMakeSize(0, 0)))
+					{
+						keyboardSelectionPoint = NSMakePoint(keyboardSelectionPoint.x + keyboardSelectionSize.width - 1,
+															 keyboardSelectionPoint.y + keyboardSelectionSize.height - 1);
+						keyboardSelectionSize = NSMakeSize(0, 0);
+					}
+
+					if ( keyChar == NSRightArrowFunctionKey )
+						keyboardSelectionPoint.x += 1;
+					else if ( keyChar == NSLeftArrowFunctionKey )
+						keyboardSelectionPoint.x -= 1;
+					else if ( keyChar == NSUpArrowFunctionKey )
+						keyboardSelectionPoint.y += 1;
+					else if ( keyChar == NSDownArrowFunctionKey )
+						keyboardSelectionPoint.y -= 1;
+					
+					if (keyboardSelectionPoint.x > [self width]-1)
+						keyboardSelectionPoint.x = [self width]-1;
+					
+					if (keyboardSelectionPoint.x < 0)
+						keyboardSelectionPoint.x = 0;
+
+					if (keyboardSelectionPoint.y > [self height]-1)
+						keyboardSelectionPoint.y = [self height]-1;
+					
+					if (keyboardSelectionPoint.y < 0)
+						keyboardSelectionPoint.y = 0;
+					
+					newRect = NSMakeRect(keyboardSelectionPoint.x, keyboardSelectionPoint.y, keyboardSelectionSize.width, keyboardSelectionSize.height);
+				}
+			}
+			else
+			{
+				if ( keyChar == NSRightArrowFunctionKey )
+					keyboardSelectionPoint = NSMakePoint(0, 0);
+				else if ( keyChar == NSLeftArrowFunctionKey )
+					keyboardSelectionPoint = NSMakePoint([self width]-1, [self height]-1);
+				else if ( keyChar == NSDownArrowFunctionKey )
+					keyboardSelectionPoint = NSMakePoint(0, [self height]-1);
+				else if ( keyChar == NSUpArrowFunctionKey )
+					keyboardSelectionPoint = NSMakePoint([self width]-1, 0);
+				
+				previousActiveRect = NSMakeRect(-1, -1, -1, -1);
+				keyboardSelectionSize = NSMakeSize(0, 0);
+				keyboardMode = true;
+				
+				newRect = NSMakeRect(keyboardSelectionPoint.x, keyboardSelectionPoint.y, keyboardSelectionSize.width, keyboardSelectionSize.height);
+			}
+			
+			[self activateCellsInRect:newRect];
+            return;
+        }
+    }
+	else
+	{
+		unichar keyChar = [[theEvent charactersIgnoringModifiers] characterAtIndex:0];
+		if ((keyChar == NSCarriageReturnCharacter || keyChar == NSEnterCharacter))
+		{
+			NSRect flippedRect = NSMakeRect(previousActiveRect.origin.x, [self height]-1-(previousActiveRect.origin.y+previousActiveRect.size.height), previousActiveRect.size.width+1, previousActiveRect.size.height+1);
+			SlateLogger(@"Enter - (%f,%f,%f,%f)", previousActiveRect.origin.x, previousActiveRect.origin.y,previousActiveRect.size.width, previousActiveRect.size.height);
+			// activate shit
+			[[self op] activateLayoutWithOrigin:[[ExpressionPoint alloc] initWithX:[NSString stringWithFormat:@"screenOriginX+%d+(screenSizeX*%f/%ld)", (flippedRect.origin.x)? 1 : 0, flippedRect.origin.x,[self width]]
+																				 y:[NSString stringWithFormat:@"screenOriginY+%d+(screenSizeY*%f/%ld)", (flippedRect.origin.y)? 1 : 0, flippedRect.origin.y, [self height]]]
+										   size:[[ExpressionPoint alloc] initWithX:[NSString stringWithFormat:@"(screenSizeX*%f/%ld)", flippedRect.size.width, [self width]]
+																				 y:[NSString stringWithFormat:@"(screenSizeY*%f/%ld)", flippedRect.size.height, [self height]]]
+									   screenId:[[[ScreenWrapper alloc] init] getScreenIdForPoint:[NSEvent mouseLocation]]];
+			[[self op] performSelectorOnMainThread:@selector(killGrids) withObject:nil waitUntilDone:NO];
+			keyboardMode = false;
+			return;
+		}
+	}
+	
+	[super keyDown:theEvent];
+}
+
 
 @end

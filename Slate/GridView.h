@@ -32,6 +32,9 @@
 @property float cellHeight;
 @property NSMutableArray *grid;
 @property NSRect previousActiveRect;
+@property bool keyboardMode;
+@property NSPoint keyboardSelectionPoint;
+@property NSSize keyboardSelectionSize;
 
 - (void)addGridWithWidth:(NSInteger)width height:(NSInteger)height padding:(float)myPadding;
 

@@ -22,13 +22,17 @@
 
 @interface HintView : NSView {
 @private
+  NSString *title;
   NSString *text;
   NSImage *icon;
+  NSSize hintSize;
 }
 
 - (void)setIconFromAppRef:(AXUIElementRef)appRef;
 
+@property NSString *title;
 @property NSString *text;
 @property NSImage *icon;
+@property NSSize hintSize;
 
 @end

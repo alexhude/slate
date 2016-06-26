@@ -55,6 +55,7 @@
 - (void)killHints;
 - (void)activateHintKey:(NSInteger)hintId;
 - (BOOL)collidesWithExistingHint:(NSPoint)origin;
+- (NSSize)getTitleSize:(NSString*)hintTitle;
 
 + (id)hintOperation;
 + (id)hintOperationFromString:(NSString *)hintOperation;
